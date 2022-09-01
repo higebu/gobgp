@@ -12,6 +12,8 @@
     # listen address list (by default "0.0.0.0" and "::")
     local-address-list = ["192.168.10.1", "2001:db8::1"]
 
+    srv6-locator = "loc1"
+
     [global.apply-policy.config]
         import-policy-list = ["policy1"]
         default-import-policy = "reject-route"
@@ -41,6 +43,13 @@
         # export-rt-list
         # are preferred than both-rt-list.
         both-rt-list = ["65000:100"]
+        srv6-locator = "loc1"
+
+[srv6]
+    [[srv6.locators]]
+        name = "loc1"
+        prefix = "2001:db8:1:1::/64"
+        locator-node-length = 24
 
 [[mrt-dump]]
     [mrt-dump.config]

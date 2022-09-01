@@ -1308,6 +1308,8 @@ type VrfState struct {
 	// original -> gobgp:export-rt
 	// List of export Route Targets for this VRF.
 	ExportRtList []string `mapstructure:"export-rt-list" json:"export-rt-list,omitempty"`
+	// original -> gobgp:srv6-locator
+	SRv6Locator string `mapstructure:"srv6-locator" json:"srv6-locator,omitempty"`
 }
 
 // struct for container gobgp:config.
@@ -1332,6 +1334,8 @@ type VrfConfig struct {
 	// List of both import and export Route Targets for this VRF. Each
 	// configuration for import and export Route Targets will be preferred.
 	BothRtList []string `mapstructure:"both-rt-list" json:"both-rt-list,omitempty"`
+	// original -> gobgp:srv6-locator
+	SRv6Locator string `mapstructure:"srv6-locator" json:"srv6-locator,omitempty"`
 }
 
 func (lhs *VrfConfig) Equal(rhs *VrfConfig) bool {
@@ -1370,6 +1374,9 @@ func (lhs *VrfConfig) Equal(rhs *VrfConfig) bool {
 		if l != rhs.BothRtList[idx] {
 			return false
 		}
+	}
+	if lhs.SRv6Locator != rhs.SRv6Locator {
+		return false
 	}
 	return true
 }
@@ -4349,6 +4356,51 @@ func (lhs *GracefulRestart) Equal(rhs *GracefulRestart) bool {
 	return true
 }
 
+type Locator struct {
+	Name              string `mapstructure:"name" json:"name,omitempty"`
+	Prefix            string `mapstructure:"prefix" json:"prefix,omitempty"`
+	LocatorNodeLength uint8  `mapstructure:"locator-node-length" json:"locator-node-length,omitempty"`
+}
+
+func (lhs *Locator) Equal(rhs *Locator) bool {
+	if lhs.Name != rhs.Name {
+		return false
+	}
+	if lhs.Prefix != rhs.Prefix {
+		return false
+	}
+	if lhs.LocatorNodeLength != rhs.LocatorNodeLength {
+		return false
+	}
+	return true
+}
+
+// struct for container bgp:srv6.
+// Parameters relating SRv6 for BGP.
+type SRv6 struct {
+	Locators []Locator `mapstructure:"locators" json:"locators,omitempty"`
+}
+
+func (lhs *SRv6) Equal(rhs *SRv6) bool {
+	if len(lhs.Locators) != len(rhs.Locators) {
+		return false
+	}
+	{
+		lmap := make(map[string]*Locator)
+		for i, l := range lhs.Locators {
+			lmap[mapkey(i, string(l.Name))] = &lhs.Locators[i]
+		}
+		for i, r := range rhs.Locators {
+			if l, y := lmap[mapkey(i, string(r.Name))]; !y {
+				return false
+			} else if !r.Equal(l) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // struct for container bgp-mp:state.
 // State information relating to iBGP multipath.
 type IbgpState struct {
@@ -4835,6 +4887,8 @@ type GlobalState struct {
 	Port int32 `mapstructure:"port" json:"port,omitempty"`
 	// original -> gobgp:local-address
 	LocalAddressList []string `mapstructure:"local-address-list" json:"local-address-list,omitempty"`
+	// original -> bgp:srv6-locator
+	SRv6Locator string `mapstructure:"srv6-locator" json:"srv6-locator,omitempty"`
 }
 
 // struct for container bgp:config.
@@ -4854,6 +4908,8 @@ type GlobalConfig struct {
 	Port int32 `mapstructure:"port" json:"port,omitempty"`
 	// original -> gobgp:local-address
 	LocalAddressList []string `mapstructure:"local-address-list" json:"local-address-list,omitempty"`
+	// original -> bgp:srv6-locator
+	SRv6Locator string `mapstructure:"srv6-locator" json:"srv6-locator,omitempty"`
 }
 
 func (lhs *GlobalConfig) Equal(rhs *GlobalConfig) bool {
@@ -4876,6 +4932,9 @@ func (lhs *GlobalConfig) Equal(rhs *GlobalConfig) bool {
 		if l != rhs.LocalAddressList[idx] {
 			return false
 		}
+	}
+	if lhs.SRv6Locator != rhs.SRv6Locator {
+		return false
 	}
 	return true
 }
@@ -4981,6 +5040,8 @@ type Bgp struct {
 	BmpServers []BmpServer `mapstructure:"bmp-servers" json:"bmp-servers,omitempty"`
 	// original -> gobgp:vrfs
 	Vrfs []Vrf `mapstructure:"vrfs" json:"vrfs,omitempty"`
+	// original -> gobgp:srv6
+	SRv6 SRv6 `mapstructure:"srv6" json:"srv6,omitempty"`
 	// original -> gobgp:mrt-dump
 	MrtDump []Mrt `mapstructure:"mrt-dump" json:"mrt-dump,omitempty"`
 	// original -> gobgp:zebra
@@ -5115,6 +5176,9 @@ func (lhs *Bgp) Equal(rhs *Bgp) bool {
 				return false
 			}
 		}
+	}
+	if !lhs.SRv6.Equal(&(rhs.SRv6)) {
+		return false
 	}
 	return true
 }
