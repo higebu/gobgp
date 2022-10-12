@@ -207,3 +207,125 @@ func Test_MUPType2SessionTransformedRouteIPv6(t *testing.T) {
 
 	assert.Equal(n1, n2)
 }
+
+func Benchmark_MUPSerializeInterworkSegmentDiscoveryRoute(b *testing.B) {
+	rd, _ := ParseRouteDistinguisher("100:100")
+	r := &MUPInterworkSegmentDiscoveryRoute{
+		RD:           rd,
+		PrefixLength: 24,
+		Prefix:       netip.MustParsePrefix("10.10.10.0/24"),
+	}
+	for i := 0; i < b.N; i++ {
+		n := NewMUPNLRI(AFI_IP, MUP_ARCH_TYPE_3GPP_5G, MUP_ROUTE_TYPE_INTERWORK_SEGMENT_DISCOVERY, r)
+		n.Serialize()
+	}
+}
+
+func Benchmark_MUPDecodeInterworkSegmentDiscoveryRoute(b *testing.B) {
+	rd, _ := ParseRouteDistinguisher("100:100")
+	r := &MUPInterworkSegmentDiscoveryRoute{
+		RD:           rd,
+		PrefixLength: 24,
+		Prefix:       netip.MustParsePrefix("10.10.10.0/24"),
+	}
+	n := NewMUPNLRI(AFI_IP, MUP_ARCH_TYPE_3GPP_5G, MUP_ROUTE_TYPE_INTERWORK_SEGMENT_DISCOVERY, r)
+	buf, _ := n.Serialize()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		n, _ := NewPrefixFromRouteFamily(RouteFamilyToAfiSafi(RF_MUP_IPv4))
+		n.DecodeFromBytes(buf)
+	}
+}
+
+func Benchmark_MUPSerializeDirectSegmentDiscoveryRoute(b *testing.B) {
+	rd, _ := ParseRouteDistinguisher("100:100")
+	r := &MUPDirectSegmentDiscoveryRoute{
+		RD:      rd,
+		Address: netip.MustParseAddr("10.10.10.1"),
+	}
+	for i := 0; i < b.N; i++ {
+		n := NewMUPNLRI(AFI_IP, MUP_ARCH_TYPE_3GPP_5G, MUP_ROUTE_TYPE_DIRECT_SEGMENT_DISCOVERY, r)
+		n.Serialize()
+	}
+}
+
+func Benchmark_MUPDecodeDirectSegmentDiscoveryRoute(b *testing.B) {
+	rd, _ := ParseRouteDistinguisher("100:100")
+	r := &MUPDirectSegmentDiscoveryRoute{
+		RD:      rd,
+		Address: netip.MustParseAddr("10.10.10.1"),
+	}
+	n := NewMUPNLRI(AFI_IP, MUP_ARCH_TYPE_3GPP_5G, MUP_ROUTE_TYPE_DIRECT_SEGMENT_DISCOVERY, r)
+	buf, _ := n.Serialize()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		n, _ := NewPrefixFromRouteFamily(RouteFamilyToAfiSafi(RF_MUP_IPv4))
+		n.DecodeFromBytes(buf)
+	}
+}
+
+func Benchmark_MUPSerializeType1SessionTransformedRoute(b *testing.B) {
+	rd, _ := ParseRouteDistinguisher("100:100")
+	r := &MUPType1SessionTransformedRoute{
+		RD:                    rd,
+		Prefix:                netip.MustParsePrefix("192.100.0.1/32"),
+		TEID:                  12345,
+		QFI:                   9,
+		EndpointAddressLength: 32,
+		EndpointAddress:       netip.MustParseAddr("10.10.10.1"),
+	}
+	for i := 0; i < b.N; i++ {
+		n := NewMUPNLRI(AFI_IP, MUP_ARCH_TYPE_3GPP_5G, MUP_ROUTE_TYPE_TYPE_1_SESSION_TRANSFORMED, r)
+		n.Serialize()
+	}
+}
+
+func Benchmark_MUPDecodeType1SessionTransformedRoute(b *testing.B) {
+	rd, _ := ParseRouteDistinguisher("100:100")
+	r := &MUPType1SessionTransformedRoute{
+		RD:                    rd,
+		Prefix:                netip.MustParsePrefix("192.100.0.1/32"),
+		TEID:                  12345,
+		QFI:                   9,
+		EndpointAddressLength: 32,
+		EndpointAddress:       netip.MustParseAddr("10.10.10.1"),
+	}
+	n := NewMUPNLRI(AFI_IP, MUP_ARCH_TYPE_3GPP_5G, MUP_ROUTE_TYPE_TYPE_1_SESSION_TRANSFORMED, r)
+	buf, _ := n.Serialize()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		n, _ := NewPrefixFromRouteFamily(RouteFamilyToAfiSafi(RF_MUP_IPv4))
+		n.DecodeFromBytes(buf)
+	}
+}
+
+func Benchmark_MUPSerializeType2SessionTransformedRoute(b *testing.B) {
+	rd, _ := ParseRouteDistinguisher("100:100")
+	r := &MUPType2SessionTransformedRoute{
+		RD:                    rd,
+		EndpointAddressLength: 32,
+		EndpointAddress:       netip.MustParseAddr("10.10.10.1"),
+		TEID:                  12345,
+	}
+	for i := 0; i < b.N; i++ {
+		n := NewMUPNLRI(AFI_IP, MUP_ARCH_TYPE_3GPP_5G, MUP_ROUTE_TYPE_TYPE_2_SESSION_TRANSFORMED, r)
+		n.Serialize()
+	}
+}
+
+func Benchmark_MUPDecodeType2SessionTransformedRoute(b *testing.B) {
+	rd, _ := ParseRouteDistinguisher("100:100")
+	r := &MUPType2SessionTransformedRoute{
+		RD:                    rd,
+		EndpointAddressLength: 32,
+		EndpointAddress:       netip.MustParseAddr("10.10.10.1"),
+		TEID:                  12345,
+	}
+	n := NewMUPNLRI(AFI_IP, MUP_ARCH_TYPE_3GPP_5G, MUP_ROUTE_TYPE_TYPE_2_SESSION_TRANSFORMED, r)
+	buf, _ := n.Serialize()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		n, _ := NewPrefixFromRouteFamily(RouteFamilyToAfiSafi(RF_MUP_IPv4))
+		n.DecodeFromBytes(buf)
+	}
+}
