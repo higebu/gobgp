@@ -26,6 +26,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -3249,62 +3250,110 @@ func Test_PathAttributeLs(t *testing.T) {
 }
 
 func Test_BGPOpenDecodeCapabilities(t *testing.T) {
-	// BGP OPEN message with add-path and long-lived-graceful-restart capabilities,
-	// in that order.
-	openBytes := []byte{
-		0x04,       // version: 4
-		0xfa, 0x7b, // my as: 64123
-		0x00, 0xf0, // hold time: 240 seconds
-		0x7f, 0x00, 0x00, 0x02, // BGP identifier: 127.0.0.2
-		0x19, // optional parameters length: 25
-		0x02, // parameter type: capability
-		0x17, // parameter length: 23
+	tests := []struct {
+		name string
+		in   []byte
+		want map[BGPCapabilityCode][]ParameterCapabilityInterface
+		err  error
+	}{
+		{
+			name: "BGP OPEN message with add-path and long-lived-graceful-restart capabilities",
+			in: []byte{
+				0x04,       // version: 4
+				0xfa, 0x7b, // my as: 64123
+				0x00, 0xf0, // hold time: 240 seconds
+				0x7f, 0x00, 0x00, 0x02, // BGP identifier: 127.0.0.2
+				0x19, // optional parameters length: 25
+				0x02, // parameter type: capability
+				0x17, // parameter length: 23
 
-		0x05,       // capability type: extended next hop
-		0x06,       // caability length: 6
-		0x00, 0x01, // AFI: IPv4
-		0x00, 0x01, // SAFI: unicast
-		0x00, 0x02, // next hop AFI: IPv6
+				0x05,       // capability type: extended next hop
+				0x06,       // caability length: 6
+				0x00, 0x01, // AFI: IPv4
+				0x00, 0x01, // SAFI: unicast
+				0x00, 0x02, // next hop AFI: IPv6
 
-		0x45,       // capability type: ADD-PATH
-		0x04,       // capability length: 4
-		0x00, 0x01, // AFI: IPv4
-		0x01, // SAFI: unicast
-		0x02, // Send/Receive: Send
+				0x45,       // capability type: ADD-PATH
+				0x04,       // capability length: 4
+				0x00, 0x01, // AFI: IPv4
+				0x01, // SAFI: unicast
+				0x02, // Send/Receive: Send
 
-		0x47, // capability type: Long-lived-graceful-restart
-		0x07, // capability length: 7
-		0x00, 0x01, 0x01, 0x00, 0x00, 0x0e, 0x10,
+				0x47, // capability type: Long-lived-graceful-restart
+				0x07, // capability length: 7
+				0x00, 0x01, 0x01, 0x00, 0x00, 0x0e, 0x10,
+			},
+			want: map[BGPCapabilityCode][]ParameterCapabilityInterface{
+				BGP_CAP_EXTENDED_NEXTHOP: {
+					&CapExtendedNexthop{
+						DefaultParameterCapability: DefaultParameterCapability{
+							CapCode:  BGP_CAP_EXTENDED_NEXTHOP,
+							CapLen:   6,
+							CapValue: []uint8{0x00, 0x01, 0x00, 0x01, 0x00, 0x02},
+						},
+						Tuples: []*CapExtendedNexthopTuple{{NLRIAFI: AFI_IP, NLRISAFI: SAFI_UNICAST, NexthopAFI: AFI_IP6}},
+					},
+				},
+				BGP_CAP_ADD_PATH: {
+					&CapAddPath{
+						DefaultParameterCapability: DefaultParameterCapability{
+							CapCode:  BGP_CAP_ADD_PATH,
+							CapLen:   4,
+							CapValue: []uint8{0x00, 0x01, 0x01, 0x02},
+						},
+						Tuples: []*CapAddPathTuple{{RouteFamily: RF_IPv4_UC, Mode: BGP_ADD_PATH_SEND}},
+					},
+				},
+				BGP_CAP_LONG_LIVED_GRACEFUL_RESTART: {
+					&CapLongLivedGracefulRestart{
+						DefaultParameterCapability: DefaultParameterCapability{
+							CapCode:  BGP_CAP_LONG_LIVED_GRACEFUL_RESTART,
+							CapLen:   7,
+							CapValue: []uint8{0x00, 0x01, 0x01, 0x00, 0x00, 0x0e, 0x10},
+						},
+						Tuples: []*CapLongLivedGracefulRestartTuple{
+							{
+								AFI:         AFI_IP,
+								SAFI:        SAFI_UNICAST,
+								Flags:       0,
+								RestartTime: 3600,
+							},
+						}},
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "Issue 2598 invalid capability optional parameter length",
+			in:   []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x2c, 0x01, 0x04, 0xfd, 0xe9, 0x00, 0x5a, 0x01, 0x02, 0x03, 0x04, 0x0f, 0x02, 0x0d, 0x02, 0x01, 0x04, 0x00, 0x01, 0x00, 0x01, 0x41, 0x04, 0x00, 0x00, 0xfd, 0xe9},
+			want: nil,
+			err:  NewMessageError(BGP_ERROR_MESSAGE_HEADER_ERROR, BGP_ERROR_SUB_BAD_MESSAGE_LENGTH, nil, "Not all BGP Open message bytes available"),
+		},
 	}
 
-	open := &BGPOpen{}
-	err := open.DecodeFromBytes(openBytes)
-	assert.NoError(t, err)
-
-	capMap := make(map[BGPCapabilityCode][]ParameterCapabilityInterface)
-	for _, p := range open.OptParams {
-		if paramCap, y := p.(*OptionParameterCapability); y {
-			t.Logf("parameter capability: %+v", paramCap)
-			for _, c := range paramCap.Capability {
-				m, ok := capMap[c.Code()]
-				if !ok {
-					m = make([]ParameterCapabilityInterface, 0, 1)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			open := &BGPOpen{}
+			err := open.DecodeFromBytes(tt.in)
+			assert.Equal(t, err, tt.err)
+			if tt.want != nil {
+				capMap := make(map[BGPCapabilityCode][]ParameterCapabilityInterface)
+				for _, p := range open.OptParams {
+					if paramCap, y := p.(*OptionParameterCapability); y {
+						t.Logf("parameter capability: %+v", paramCap)
+						for _, c := range paramCap.Capability {
+							m, ok := capMap[c.Code()]
+							if !ok {
+								m = make([]ParameterCapabilityInterface, 0, 1)
+							}
+							capMap[c.Code()] = append(m, c)
+						}
+					}
 				}
-				capMap[c.Code()] = append(m, c)
+				if diff := cmp.Diff(tt.want, capMap); diff != "" {
+					t.Errorf("mismatch (-want +got):\n%s", diff)
+				}
 			}
-		}
+		})
 	}
-
-	assert.Len(t, capMap[BGP_CAP_EXTENDED_NEXTHOP], 1)
-	nexthopTuples := capMap[BGP_CAP_EXTENDED_NEXTHOP][0].(*CapExtendedNexthop).Tuples
-	assert.Len(t, nexthopTuples, 1)
-	assert.Equal(t, nexthopTuples[0].NLRIAFI, uint16(AFI_IP))
-	assert.Equal(t, nexthopTuples[0].NLRISAFI, uint16(SAFI_UNICAST))
-	assert.Equal(t, nexthopTuples[0].NexthopAFI, uint16(AFI_IP6))
-
-	assert.Len(t, capMap[BGP_CAP_ADD_PATH], 1)
-	tuples := capMap[BGP_CAP_ADD_PATH][0].(*CapAddPath).Tuples
-	assert.Len(t, tuples, 1)
-	assert.Equal(t, tuples[0].RouteFamily, RF_IPv4_UC)
-	assert.Equal(t, tuples[0].Mode, BGP_ADD_PATH_SEND)
 }
