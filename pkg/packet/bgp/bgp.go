@@ -10966,7 +10966,7 @@ func (p *PathAttributeMpReachNLRI) DecodeFromBytes(data []byte, options ...*Mars
 		v4addrlen := 4
 		v6addrlen := 16
 		offset := 0
-		if safi == SAFI_MPLS_VPN {
+		if safi == SAFI_MPLS_VPN || safi == SAFI_MPLS_VPN_MULTICAST || safi == SAFI_MUP {
 			offset = 8
 		}
 		switch nexthoplen {
@@ -11018,7 +11018,7 @@ func (p *PathAttributeMpReachNLRI) Serialize(options ...*MarshallingOption) ([]b
 	}
 	offset := 0
 	switch safi {
-	case SAFI_MPLS_VPN:
+	case SAFI_MPLS_VPN, SAFI_MPLS_VPN_MULTICAST, SAFI_MUP:
 		offset = 8
 		nexthoplen += offset
 	case SAFI_FLOW_SPEC_VPN, SAFI_FLOW_SPEC_UNICAST:
